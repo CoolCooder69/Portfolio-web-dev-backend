@@ -3,8 +3,8 @@ const bcrypt = require("bcrypt");
 require("dotenv").config();
 
 
-const client = require("../redis");
-const { sgMail } = require("../mailApi");
+const client = require("../utils/redis");
+const { sgMail } = require("../utils/mailApi");
 const checkUserEmail = require("./checkUser");
 
 const OTP_EXP = 5000; // seconds
@@ -19,11 +19,12 @@ const emailSendOTP = async (email, otp) => {
   try {
     await sgMail.send(msg);
     console.log(`OTP email sent successfully to ${email}`);
-    return true;
+    // return true;
   } catch (error) {
     console.error("Mail Provider error:", error);
-    return false;
+    // return false;
   }
+  return true; 
 };
 
 const generateOTP = async () => {

@@ -1,5 +1,5 @@
 const { getAuth } = require("firebase-admin/auth");
-const { useFirebase } = require("../firebase");
+const { useFirebase } = require("../utils/firebase");
 
 const fAuth = getAuth(useFirebase);
 

@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const dbclient = require("./redis");
+const dbclient = require("./utils/redis");
 
 app.use(cors());
 app.use(express.json());
@@ -12,12 +12,12 @@ app.use(express.urlencoded({ extended: true }));
 const isEmail = require("validator/lib/isEmail");
 const sendOTP = require("./middleware/sendOTP");
 const verifyOTP = require("./middleware/verifyOTP");
-const { sgMail, sgMailClient } = require("./mailApi");
-const createUserToken = require("./createToken");
+const { sgMail, sgMailClient } = require("./utils/mailApi");
+const createUserToken = require("./utils/helper/createToken");
 const checkUserEmail = require("./middleware/checkUser");
 
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
-const { useFirebase } = require("./firebase");
+const { useFirebase } = require("./utils/firebase");
 const requireAuth = require("./middleware/authCheck");
 const saveUserToDb = require("./middleware/saveUser");
 const db = getFirestore(useFirebase);
@@ -94,16 +94,22 @@ app.post("/api/signup", checkUserEmail, saveUserToDb, sendOTP, (req, res) => {
 });
 
 app.post("/api/verifyForSignup", verifyOTP, async (req, res) => {
-  const email = req.body.email;
-  const password = req.body.password;
+  const { email, password } = req.body;
+
   try {
-    const token = await createUserToken(email, password, {
-      createIfMissing: true,
-    });
+    const token = await createUserToken(email, password);
     return res.status(200).json({ token });
   } catch (e) {
+    if (e.code === "auth/email-already-exists") {
+      return res.status(409).json({ message: "Email already in use." });
+    }
+    if (e.code === "auth/invalid-password") {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters." });
+    }
     console.error("Signup token error:", e);
-    return res.status(500).json({ Status: "Internal Server Error" });
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

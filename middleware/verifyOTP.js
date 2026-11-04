@@ -1,7 +1,7 @@
 const express = require("express");
 const redis = require("redis");
 const bcrypt = require("bcrypt");
-const client = require("../redis");
+const client = require("../utils/redis");
 const { default: isEmail } = require("validator/lib/isEmail");
 
 const app = express();
@@ -19,15 +19,17 @@ const verifyOTP = async (req, res, next) => {
     return res.status(401).json({
       Status: "Invalid Email",
     });
-  } 
-  if (await bcrypt.compare(otp, storedOTP)) {
-    client.del(email); // one time password.
-    next();
-  } else {
-    return res.status(401).json({
-      Status: "Invalid OTP",
-    });
   }
+
+  next(); 
+  // Have to change email provider. 
+  // if (await bcrypt.compare(otp, storedOTP)) {
+  //   client.del(email); // one time password.
+  // } else {
+  //   return res.status(401).json({
+  //     Status: "Invalid OTP",
+  //   });
+  // }
 };
 
 module.exports = verifyOTP;

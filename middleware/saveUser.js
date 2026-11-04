@@ -1,5 +1,5 @@
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const { useFirebase } = require("../firebase");
+const { useFirebase } = require("../utils/firebase");
 
 const db = getFirestore(useFirebase);
 
