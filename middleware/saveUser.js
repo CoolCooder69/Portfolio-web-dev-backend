@@ -1,7 +1,8 @@
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { useFirebase } = require("../utils/firebase");
+const useFireStore = require("../utils/firestore");
 
-const db = getFirestore(useFirebase);
+const db = useFireStore(); 
 
 const saveUserToDb = async (req, res, next) => {
   const email = req.body.email;

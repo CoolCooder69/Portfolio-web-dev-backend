@@ -16,11 +16,14 @@ const { sgMail, sgMailClient } = require("./utils/mailApi");
 const createUserToken = require("./utils/helper/createToken");
 const checkUserEmail = require("./middleware/checkUser");
 
-const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const { useFirebase } = require("./utils/firebase");
 const requireAuth = require("./middleware/authCheck");
 const saveUserToDb = require("./middleware/saveUser");
-const db = getFirestore(useFirebase);
+const useFireStore = require("./utils/firestore");
+const { Timestamp, FieldValue } = require("firebase-admin/firestore");
+const optionalAuth = require("./middleware/optionalAuth");
+
+const db = useFireStore();
 
 const addToNewLetter = async (email) => {
   const data = { contacts: [{ email: email }] };
@@ -118,20 +121,118 @@ app.post("/api/upgrade", requireAuth, async (req, res) => {
     const expiresAt = new Date();
     expiresAt.setMonth(expiresAt.getMonth() + 1);
 
-    await db.collection("users").doc(req.email).set(
-      {
-        plan: "premium",
-        planExpiresAt: Timestamp.fromDate(expiresAt),
-        upgradedAt: Timestamp.now(),
-      },
-      { merge: true }
-    );
+    await db
+      .collection("users")
+      .doc(req.email)
+      .set(
+        {
+          plan: "premium",
+          planExpiresAt: Timestamp.fromDate(expiresAt),
+          upgradedAt: Timestamp.now(),
+        },
+        { merge: true },
+      );
 
     console.log("Plan upgraded:", req.email);
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error("Upgrade error:", e);
     return res.status(500).json({ message: "Upgrade failed" });
+  }
+});
+
+app.post("/api/posts", requireAuth, async (req, res) => {
+  const { title, content } = req.body;
+
+  if (typeof title !== "string" || typeof content !== "string") {
+    return res.status(400).json({ message: "Title and content are required." });
+  }
+
+  const cleanTitle = title.trim();
+  const cleanContent = content.trim();
+
+  if (!cleanTitle || !cleanContent) {
+    return res
+      .status(400)
+      .json({ message: "Title and content cannot be empty." });
+  }
+  if (cleanTitle.length > 50 || cleanContent.length > 200) {
+    return res.status(400).json({ message: "Title or content is too long." });
+  }
+
+  try {
+    const userRef = db.collection("users").doc(req.email);
+    const postRef = db.collection("posts").doc();
+
+    const tier = await db.runTransaction(async (tx) => {
+      const userSnap = await tx.get(userRef);
+      const user = userSnap.data() || {};
+
+      const expiresAt = user.planExpiresAt?.toDate();
+      const isPremium =
+        user.plan === "premium" && expiresAt && expiresAt > new Date();
+      const tier = isPremium ? "paid" : "free";
+      tx.set(postRef, {
+        title: cleanTitle,
+        content: cleanContent,
+        tier,
+        authorId: req.uid,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      tx.set(
+        userRef,
+        { postsThisMonth: FieldValue.increment(1) },
+        { merge: true },
+      );
+
+      return tier;
+    });
+
+    console.log("Post created:", postRef.id, "by", req.email);
+    return res.status(201).json({ id: postRef.id, tier });
+  } catch (e) {
+    console.error("Create post error:", e);
+    return res.status(500).json({ message: "Failed to create post." });
+  }
+});
+
+const isActivePremium = (user) => {
+  const expiresAt = user?.planExpiresAt?.toDate();
+  return user?.plan === "premium" && !!expiresAt && expiresAt > new Date();
+};
+
+app.get("/api/posts", optionalAuth, async (req, res) => {
+  try {
+    let tiers = ["free"];
+
+    if (req.email) {
+      const userSnap = await db.collection("users").doc(req.email).get();
+      if (isActivePremium(userSnap.data())) tiers = ["free", "paid"];
+    }
+
+    const snap = await db
+      .collection("posts")
+      .where("tier", "in", tiers)
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+
+    const posts = snap.docs.map((d) => {
+      const p = d.data();
+      return {
+        id: d.id,
+        title: p.title,
+        content: p.content,
+        label: p.tier === "paid" ? "Premium" : null, 
+        createdAt: p.createdAt?.toDate().toISOString() ?? null,
+      };
+    });
+
+    return res.status(200).json({ posts });
+  } catch (e) {
+    console.error("List posts error:", e);
+    return res.status(500).json({ message: "Failed to load posts." });
   }
 });
 

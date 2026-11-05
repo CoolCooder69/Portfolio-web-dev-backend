@@ -12,4 +12,4 @@ const useFirebase = ()=> {
     return firebaseApp;  
 }; 
 
-module.exports =  useFirebase; 
+module.exports = useFirebase; 
