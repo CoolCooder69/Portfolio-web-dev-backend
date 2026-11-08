@@ -22,6 +22,7 @@ const saveUserToDb = require("./middleware/saveUser");
 const useFireStore = require("./utils/firestore");
 const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 const optionalAuth = require("./middleware/optionalAuth");
+const { CreateSignatureForPhoto } = require("./utils/cloudinary");
 
 const db = useFireStore();
 
@@ -142,12 +143,23 @@ app.post("/api/upgrade", requireAuth, async (req, res) => {
 });
 
 app.post("/api/posts", requireAuth, async (req, res) => {
-  const { title, content } = req.body;
+  const { title, content, thumbnailURL } = req.body;
+
+  let cleanThumbnail = null;
+  if (thumbnailURL !== undefined && thumbnailURL !== null && thumbnailURL !== "") {
+    if (
+      typeof thumbnailURL !== "string" ||
+      !thumbnailURL.startsWith(`http://res.cloudinary.com/${process.env.SB_CLOUD_NAME}/`)
+    ) {
+      return res.status(400).json({ message: "Invalid thumbnail URL." });
+    }
+    cleanThumbnail = thumbnailURL;
+  }
 
   if (typeof title !== "string" || typeof content !== "string") {
     return res.status(400).json({ message: "Title and content are required." });
   }
-
+  
   const cleanTitle = title.trim();
   const cleanContent = content.trim();
 
@@ -178,6 +190,7 @@ app.post("/api/posts", requireAuth, async (req, res) => {
         tier,
         authorId: req.uid,
         createdAt: FieldValue.serverTimestamp(),
+        thumbnailURL: cleanThumbnail
       });
 
       tx.set(
@@ -194,6 +207,15 @@ app.post("/api/posts", requireAuth, async (req, res) => {
   } catch (e) {
     console.error("Create post error:", e);
     return res.status(500).json({ message: "Failed to create post." });
+  }
+});
+
+app.post("/api/uploadPhoto", requireAuth, async (req, res) => {
+  try {
+    const { signature, timestamp, folder } =await CreateSignatureForPhoto();
+    return res.status(200).json({ signature, timestamp, folder});
+  } catch (e) { 
+    return res.status(500).json({ msg: "something went wrong." });
   }
 });
 
@@ -224,7 +246,8 @@ app.get("/api/posts", optionalAuth, async (req, res) => {
         id: d.id,
         title: p.title,
         content: p.content,
-        label: p.tier === "paid" ? "Premium" : null, 
+        thumbnailURL: p.thumbnailURL, 
+        label: p.tier === "paid" ? "Premium" : null,
         createdAt: p.createdAt?.toDate().toISOString() ?? null,
       };
     });

@@ -7,11 +7,15 @@ cloudinary.v2.config({
   api_secret: process.env.SB_CLOUD_API_SECRET,
 });
 
-export const CreateSignatureForPhoto =async () => {
+const CreateSignatureForPhoto = async () => {
   const timestamp = Math.floor(Date.now() / 1000);
   const folder = "reddit-posts";
-  return await cloudinary.v2.utils.api_sign_request(
+  const signature = await cloudinary.v2.utils.api_sign_request(
     { timestamp, folder },
     process.env.SB_CLOUD_API_SECRET,
   );
+
+  return { signature, timestamp, folder };
 };
+
+module.exports = {CreateSignatureForPhoto}; 
