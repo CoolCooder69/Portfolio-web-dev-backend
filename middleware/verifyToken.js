@@ -11,7 +11,7 @@ const verifyToken = (req, res, next) => {
         msg: "Not Authroized.",
       });
     }
-    const isVerified = fAuth.verifyIdToken(token).then(() => {
+    fAuth.verifyIdToken(token).then(() => {
       next();
     });
   } catch (e) {

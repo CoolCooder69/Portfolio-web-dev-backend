@@ -1,10 +1,8 @@
 const { getFirestore } = require("firebase-admin/firestore");
-const { useFirebase } = require("../utils/firebase");
+const firebaseApp = require("./firebase");
 
-const firestore = getFirestore(useFirebase);
+const firestore = getFirestore(firebaseApp);
 
-const useFireStore = () => {
-  return firestore;
-};
+const useFireStore = () => firestore;
 
 module.exports = useFireStore;

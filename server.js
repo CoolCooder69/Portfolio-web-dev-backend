@@ -4,9 +4,12 @@ const app = express();
 const cors = require("cors");
 const dbclient = require("./utils/redis");
 
-app.use(cors());
+app.use(
+  cors({
+    origin: (process.env.CORS_ORIGINS || "http://localhost:5173").split(","),
+  }),
+);
 app.use(express.json());
-app.use(express.static("."));
 app.use(express.urlencoded({ extended: true }));
 
 const isEmail = require("validator/lib/isEmail");
@@ -16,7 +19,6 @@ const { sgMail, sgMailClient } = require("./utils/mailApi");
 const createUserToken = require("./utils/helper/createToken");
 const checkUserEmail = require("./middleware/checkUser");
 
-const { useFirebase } = require("./utils/firebase");
 const requireAuth = require("./middleware/authCheck");
 const saveUserToDb = require("./middleware/saveUser");
 const useFireStore = require("./utils/firestore");
@@ -149,7 +151,7 @@ app.post("/api/posts", requireAuth, async (req, res) => {
   if (thumbnailURL !== undefined && thumbnailURL !== null && thumbnailURL !== "") {
     if (
       typeof thumbnailURL !== "string" ||
-      !thumbnailURL.startsWith(`http://res.cloudinary.com/${process.env.SB_CLOUD_NAME}/`)
+      !thumbnailURL.startsWith(`https://res.cloudinary.com/${process.env.SB_CLOUD_NAME}/`)
     ) {
       return res.status(400).json({ message: "Invalid thumbnail URL." });
     }
@@ -263,6 +265,7 @@ dbclient.connect().then(() => {
   console.log("Connected to database.");
 });
 
-app.listen(3000, () => {
-  console.log("App started at port 3000");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`App started at port ${PORT}`);
 });
