@@ -2,6 +2,7 @@ const { getAuth } = require("firebase-admin/auth");
 const { useFirebase } = require("../utils/firebase");
 
 const requireAuth = async (req, res, next) => {
+  console.log(req); 
   const header = req.headers.authorization || "";
   if (!header.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Not logged in" });
